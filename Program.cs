@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Karina.Api.Data;
+using Karina.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +11,9 @@ builder.Services.AddEndpointsApiExplorer();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<KarinaContext>(options => options.UseNpgsql(connectionString));
+
 //TODO: Agregar builder.Services.AddScoped para los Servicios
+builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 
 builder.Services.AddCors(options =>
 {
