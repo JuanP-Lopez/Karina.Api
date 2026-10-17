@@ -62,11 +62,11 @@ public class WhatsAppController : ControllerBase
 
         try
         {
-            await _whatsappService.isUserRegistered(payload);
+            await _whatsappService.incomingMessage(payload);
             return Ok();
         } catch(Exception err)
         {
-            Console.WriteLine($"Error at .isUserRegistered(): {err}");
+            Console.WriteLine($"Error at .incomingMessage(): {err}");
         }
 
         return Ok();
