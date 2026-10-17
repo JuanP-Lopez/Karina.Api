@@ -16,6 +16,7 @@ builder.Services.AddDbContext<KarinaContext>(options => options.UseNpgsql(connec
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
+builder.Services.AddScoped<ICommunicationService, CommunicationService>();
 
 builder.Services.AddCors(options =>
 {

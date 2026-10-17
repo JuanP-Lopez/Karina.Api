@@ -19,9 +19,10 @@ public class SessionService : ISessionService
 
         Console.WriteLine("===Trying To Establish A Session===");
 
-        string session = "session_test";
+        Guid session = Guid.NewGuid();
+        string session_string = session.ToString();
 
-        string url = $"http://127.0.0.1:8000/apps/karina_agent/users/{Uri.EscapeDataString(user)}/sessions/{Uri.EscapeDataString(session)}";
+        string url = $"http://127.0.0.1:8000/apps/karina_agent/users/{Uri.EscapeDataString(user)}/sessions/{Uri.EscapeDataString(session_string)}";
 
         try
         {
@@ -44,6 +45,18 @@ public class SessionService : ISessionService
                 {
                     Console.WriteLine($"===Session Created At: {DateTime.UtcNow:O}===");
 
+                    Session newSession = new Session
+                    {
+                        session_id = session,
+                        user_id = Guid.Parse("dfc7f9b2-6464-4f74-a5cb-7649c636ee01"),
+                        created_at = DateTime.UtcNow
+                    };
+
+                    _context.Sessions.Add(newSession);
+                    await _context.SaveChangesAsync();
+
+                    // await _context.Sessions.AddAsync(session);
+
                     // bool sessionConfirmed = checkSession(session);
 
                     // if (sessionConfirmed == true)
@@ -55,11 +68,11 @@ public class SessionService : ISessionService
                     //     Console.WriteLine($"===Session Impossible To Confirm===");
                     //     return (false, session);
                     // }
-                    return (true, session);
+                    return (true, session_string);
                 } else
                 {
                     Console.WriteLine($"===Error Creating Session: ({response.StatusCode}) {response_to_json}===");
-                    return (false, session);
+                    return (false, session_string);
                 }
             }
 
@@ -68,7 +81,7 @@ public class SessionService : ISessionService
             Console.WriteLine($"=== Error Creating Session: {sessionError} ===");
         }
 
-        return (false, session);
+        return (false, session_string);
     }
 
     public async Task<bool> createSessionInBd()

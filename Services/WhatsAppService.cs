@@ -14,11 +14,14 @@ public class WhatsAppService : IWhatsAppService
 
     private readonly ISessionService _sessionService;
 
-    public WhatsAppService(KarinaContext context, IUserService userService, ISessionService sessionService)
+    private readonly ICommunicationService _communicationService;
+
+    public WhatsAppService(KarinaContext context, IUserService userService, ISessionService sessionService, ICommunicationService communicationService)
     {
         _context = context;
         _userService = userService;
         _sessionService = sessionService;
+        _communicationService = communicationService;
     }
 
     public async Task<bool> incomingMessage(string payload)
@@ -55,7 +58,10 @@ public class WhatsAppService : IWhatsAppService
                     case false:
                         Console.WriteLine("User Unconfirmed");
                         //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
-                        await _sessionService.createSession("prueba");
+                        var session = await _sessionService.createSession("prueba");
+                        
+                        string? session_id = session.session_id;
+                        await _communicationService.sendMessage(phoneNumberId, phoneNumber, session_id);
                         // Console.WriteLine($"===Sending Registration Message at: {DateTime.UtcNow:O}===");
                         // await _userService.unconfirmedUserRegistration(name, wa_id);
                         // await sendRegistrationMessage(phoneNumber, phoneNumberId, name);
