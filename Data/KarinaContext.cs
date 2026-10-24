@@ -10,8 +10,6 @@ public class KarinaContext : DbContext
     {
     }
 
-    public DbSet<UnconfirmedUser> UnconfirmedUsers => Set<UnconfirmedUser>();
-
     public DbSet<User> Users => Set<User>();
 
     public DbSet<Session> Sessions => Set<Session>();
@@ -37,17 +35,7 @@ public class KarinaContext : DbContext
            entity.Property(u => u.password).HasColumnName("password"); 
            entity.Property(u => u.registered_at).HasColumnName("registered_at");
            entity.Property(u => u.wa_id).HasColumnName("wa_id");
-        });
-
-        modelBuilder.Entity<UnconfirmedUser>(entity =>
-        {
-           entity.ToTable("UnconfirmedUsers");
-           entity.HasKey(u => u.user_id);
-
-           entity.Property(u => u.user_id).HasColumnName("user_id"); 
-           entity.Property(u => u.name).HasColumnName("name"); 
-           entity.Property(u => u.wa_id).HasColumnName("wa_id");
-           entity.Property(u => u.registered_at).HasColumnName("registered_at");
+           entity.Property(u => u.role).HasColumnName("role");
         });
 
         modelBuilder.Entity<Session>(entity =>
@@ -59,6 +47,7 @@ public class KarinaContext : DbContext
             entity.Property(u => u.user_id).HasColumnName("user_id");
             entity.Property(u => u.created_at).HasColumnName("created_at");
             entity.Property(u => u.ended_at).HasColumnName("ended_at");
+            entity.Property(u => u.last_activity).HasColumnName("last_activity");
 
             entity.HasOne(u => u.user).WithMany(r => r.sessions).HasForeignKey(u => u.user_id);
         });

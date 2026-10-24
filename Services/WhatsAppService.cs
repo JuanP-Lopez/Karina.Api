@@ -25,7 +25,7 @@ public class WhatsAppService : IWhatsAppService
     }
 
     public async Task<bool> incomingMessage(string payload)
-    { 
+    {
         var data = JsonSerializer.Deserialize<WhatsAppWebhookModel>(payload);
 
         try
@@ -35,49 +35,82 @@ public class WhatsAppService : IWhatsAppService
             {
                 Console.WriteLine($"===Notification Ignored, Not a Message: {DateTime.UtcNow:O}===");
                 return false;
-            } else
+            }
+            else
             {
                 var name = value.Contacts?.FirstOrDefault()?.Profile?.Name;
-                var result = await isUserUnconfirmed(payload);
+                var phoneNumber = data?.Entry?.FirstOrDefault()?.Changes?.FirstOrDefault()?.Value?.Messages?.FirstOrDefault()?.From;
+                var phoneNumberId = data?.Entry?.FirstOrDefault()?.Changes?.FirstOrDefault()?.Value?.Metadata?.PhoneNumberId;
+                var wa_id = data?.Entry?.FirstOrDefault()?.Changes?.FirstOrDefault()?.Value?.Contacts?.FirstOrDefault()?.WaId;
+                var message = value?.Messages?.FirstOrDefault()?.Text?.Body;
 
-                bool isUserConfirmedOrNot = result.isUserConfirmedOrNot;
-                string? phoneNumber = result.phoneNumber;
-                string? phoneNumberId = result.phoneNumberId;
-                string? wa_id = result.wa_id;
+                var result = await isUserRegistered(payload);
 
-                Console.WriteLine($"===.isUserConfirmed() return: {isUserConfirmedOrNot}, {phoneNumber}, {phoneNumberId}===");
+                bool userFoundedOrNot = result.userFoundedOrNot;
+                int role = result.role;
+                Guid user_id = result.user_id;
 
-                switch (isUserConfirmedOrNot)
+                Console.WriteLine($"===.isUserRegistered() return: {userFoundedOrNot}, {role}===");
+
+                string? session_id = "";
+
+                //TODO: Incorporar soporte para usar la misma sesion si aun no expira (pueden durar maximo una hora activa tras ultimo mensaje)
+                if (role == 0)
                 {
-                    case true:
+                    Console.WriteLine("User Unregistered");
+                    //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
+                    var newSession = await _sessionService.createSession(name, user_id);
+                    string? sessionId = newSession.session_id;
+                    await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, sessionId, wa_id, message);
+                    await _userService.unconfirmedUserRegistration(name, wa_id);
+                    return true;
+                }
+
+                var activeSession = await _sessionService.searchSession(user_id);
+
+                var isActive = activeSession.isActive;
+
+                if (isActive == true)
+                {   
+                    Console.WriteLine("===Using Active Session===");
+                    session_id = activeSession.session.ToString();
+                }
+                else
+                {
+                    Console.WriteLine("===Not An Active Session===");
+                    var session = await _sessionService.createSession(name, user_id);
+                    session_id = session.session_id;
+                }
+
+                switch (role)
+                {
+                    case 1:
+                        Console.WriteLine("User Unconfirmed");
+                        //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
+                        await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, session_id, wa_id, message);
+                        Console.WriteLine($"===Sending Registration Message at: {DateTime.UtcNow:O}===");
+                        await sendRegistrationMessage(phoneNumber, phoneNumberId, name);
+                        break;
+                    case 2:
                         Console.WriteLine("User Confirmed");
                         //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder
                         Console.WriteLine($"===Handling Message at: {DateTime.UtcNow:O}===");
-                        
-                        break;
-                    case false:
-                        Console.WriteLine("User Unconfirmed");
-                        //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
-                        var session = await _sessionService.createSession("prueba");
-                        
-                        string? session_id = session.session_id;
-                        await _communicationService.sendMessage(phoneNumberId, phoneNumber, session_id);
-                        // Console.WriteLine($"===Sending Registration Message at: {DateTime.UtcNow:O}===");
-                        // await _userService.unconfirmedUserRegistration(name, wa_id);
-                        // await sendRegistrationMessage(phoneNumber, phoneNumberId, name);
+
                         break;
                 }
             }
 
             return true;
-        } catch (Exception incomingMessageError)
+        }
+        catch (Exception incomingMessageError)
         {
             Console.WriteLine($"===Error Handling Incoming Message at {DateTime.UtcNow:O}: {incomingMessageError}===");
             return false;
         }
     }
 
-    public async Task<(bool isUserConfirmedOrNot, string? phoneNumber, string? phoneNumberId, string? wa_id)> isUserUnconfirmed(string payload)
+    //TODO: Modificar busqueda en base a roles en tabla Users
+    public async Task<(bool userFoundedOrNot, int role, Guid user_id)> isUserRegistered(string payload)
     {
 
         Console.WriteLine("===Reading payload to extract wa_id===");
@@ -89,9 +122,9 @@ public class WhatsAppService : IWhatsAppService
             var wa_id = data?.Entry?.FirstOrDefault()?.Changes?.FirstOrDefault()?.Value?.Contacts?.FirstOrDefault()?.WaId;
 
             if (string.IsNullOrWhiteSpace(wa_id))
-            {   
+            {
                 Console.WriteLine("===WA_ID not found===");
-                return (false, phoneNumber, phoneNumberId, wa_id);
+                return (false, 0, Guid.NewGuid());
             }
 
             Console.WriteLine($"===WA_ID extracted: {wa_id}===");
@@ -100,32 +133,29 @@ public class WhatsAppService : IWhatsAppService
 
             try
             {
-                var userFoundUnconfirmed = _context.UnconfirmedUsers.FirstOrDefault(u => u.wa_id == wa_id);
-                if (userFoundUnconfirmed != null)
+                var userFound = _context.Users.FirstOrDefault(u => u.wa_id == wa_id);
+                if (userFound != null)
                 {
-                    Console.WriteLine($"===Unconfirmed user found by wa_id: {userFoundUnconfirmed?.name}, {userFoundUnconfirmed?.wa_id}, {userFoundUnconfirmed?.registered_at}===");
-                    return (false, phoneNumber, phoneNumberId, wa_id);
+                    Console.WriteLine($"===User found by wa_id: {userFound?.name}, {userFound?.wa_id}, {userFound?.registered_at}===");
+                    int role = userFound.role;
+                    Guid user_id = userFound.user_id;
+                    return (false, role, user_id);
                 }
 
-                var userFoundConfirmed = _context.Users.FirstOrDefault(u => u.wa_id == wa_id);
-                if (userFoundConfirmed != null)
-                {
-                    Console.WriteLine($"===Confirmed user found by wa_id: {userFoundConfirmed?.name}, {userFoundConfirmed?.wa_id}, {userFoundConfirmed?.registered_at}===");
-                    return (true, phoneNumber, phoneNumberId, wa_id);
-                }
-                
-                return (false, phoneNumber, phoneNumberId, wa_id);
+                return (false, 0, Guid.NewGuid());
 
-            } catch(Exception db_err)
+            }
+            catch (Exception db_err)
             {
                 Console.WriteLine($"Database error: {db_err}");
-                return (false, phoneNumber, phoneNumberId, wa_id);
+                return (false, 0, Guid.NewGuid());
             }
-             
-        } catch (Exception err)
+
+        }
+        catch (Exception err)
         {
             Console.WriteLine($"===Error: {err}===");
-            return (false, "phoneNumber", "phoneNumberId", "wawa");
+            return (false, 0, Guid.NewGuid());
         }
 
     }
@@ -136,14 +166,14 @@ public class WhatsAppService : IWhatsAppService
     *   la solicitud
     */
     public async Task sendRegistrationMessage(string phoneNumber, string phoneNumberId, string name)
-    {   
+    {
         Console.WriteLine("===Trying To Send Registration Message===");
 
         string url = $" https://graph.facebook.com/v25.0/{phoneNumberId}/messages";
 
         string webUrl = "http://localhost:4200/";
 
-        string accessToken = "EAAPttAPoJgcBSpamUIW1ZCuLDQARBPkJhvr63jCyOwjq9ZAu3TnceZCYLHp3HJ8ZCMySdZBBmraZCseY5eVSZCKcIpXWPIYdRPZCi4NWXrpPKY7nPJGN8FeDbcX4FJe0OeM28z0FZCdbZBf4fc9DZB6lFkkhAG5c4LrGZACgMrCoXSrZBn1pTFTxtcjwJJ5P9ZCZC3dkI6BPKy7Yux1xVPBrN4MT6pCLkeb9ZANZCoPsxvBZBaAXITTfGnJikQrVnz8Ij83I85Ei8PM4mzI4nz8oszt6y44ZAky";
+        string accessToken = "EAAPttAPoJgcBS5trP0BY2p6tSa7OOcNMosQF40UM8qd8Dok5N4ZCvsFNfDuQkXkSyIl0V6bLUnAZBrvVjdLp39bAA6mMUYFlnGVd27BAlmZBMGJz8RdgJCNHcE8haTNUzno7IKpaAhmlZCSHAOMkZCTEvpIT7iFEihDlxkdFSABthsToPBRyrfHROMjJqMZBRYZBO8tdg6UkFBvW9dm4cijOrE06hcz8AWm4RnyyGWL9XVJ3RlJtSuDvzd9WgOdHwbYNguDebzdps7mvj6lxdOO";
 
         //! A futuro, podria ser util que un AI Agent se encarge de redactar el mensaje segun el idioma en que llega el mensaje del usuario
         using (HttpClient client = new HttpClient())
@@ -170,19 +200,12 @@ public class WhatsAppService : IWhatsAppService
             if (response.IsSuccessStatusCode)
             {
                 Console.WriteLine($"===Registration Message Sended at: {DateTime.UtcNow:O}===");
-            } else
+            }
+            else
             {
                 Console.WriteLine($"===Error Sending Registration Message: ({response.StatusCode}) : {response_to_string} ===");
             }
         }
     }
 
-    public async Task<bool> handleConfirmedUser() 
-    {
-        return true;
-    }
-    public async Task sendMessageToAgent(string message)
-    {
-        
-    }
 }

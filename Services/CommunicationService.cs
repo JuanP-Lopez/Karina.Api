@@ -4,6 +4,7 @@ using System.Text.Json;
 using Karina.Api.Data;
 using Karina.Api.DTOs.KarinaAgent;
 using Karina.Api.Models;
+// using Karina.Api.Models.Whatsapp;
 
 namespace Karina.Api.Services;
 
@@ -11,12 +12,17 @@ public class CommunicationService : ICommunicationService
 {
     private readonly KarinaContext _context;
 
-    public CommunicationService(KarinaContext context)
+    private readonly ISessionService _sessionService;
+
+    public CommunicationService(KarinaContext context, ISessionService sessionService)
     {
         _context = context;
+        _sessionService = sessionService;
     }
 
-    public async Task<bool> sendMessage(string phoneNumberId, string phoneNumber, string sessionId)
+
+    //TODO: Agregar soporte para recibir el mensaje real del usuario
+    public async Task<bool> sendMessage(string name, string phoneNumberId, string phoneNumber, string sessionId, string wa_id, string userMessage)
     {
         Console.WriteLine("===Trying To Send User's Message to AI===");
 
@@ -25,18 +31,23 @@ public class CommunicationService : ICommunicationService
         var request = new KarinaRequest
         {
             app_name = "karina_agent",
-            user_id = "prueba",
+            user_id = name,
             session_id = sessionId,
             new_message = new NewMessage
             {
                 role = "user",
                 parts = [
                     new Parts {
-                        text = "Hola"
+                        text = userMessage
                     }
                 ]
             }
         };
+
+        string? message = request?.new_message?.parts?.FirstOrDefault()?.text;
+        var resultStoreMessage = await storeMessage(message, sessionId, wa_id);
+
+        Guid message_id = resultStoreMessage.messageId;
 
         try
         {
@@ -60,11 +71,14 @@ public class CommunicationService : ICommunicationService
                 string? responseText = result?.Where(e => e.Content != null)
                     .SelectMany(e => e.Content!.Parts).Select(p => p.Text).LastOrDefault(text => !string.IsNullOrWhiteSpace(text));
 
+                bool resultStoreResponse = await storeResponse(responseText, sessionId, message_id);
+
                 Console.WriteLine($"===ADK Response To Message: {response_to_json}===");
 
                 Console.WriteLine($"===AI Extracted Response: {responseText}===");
 
                 await sendResponse(phoneNumberId, phoneNumber, responseText);
+                await _sessionService.updateSession(Guid.Parse(sessionId));
             }
 
         }
@@ -84,9 +98,8 @@ public class CommunicationService : ICommunicationService
 
         string aiResponse = response ?? "";
 
-        string accessToken = "EAAPttAPoJgcBSwXUv20oyexe5ZBCVdXZAGVIcyjpZCmNZAjIZCiCqMn8NnsAqM5MRKMzzQzGuBpFwM1qn6nHzXApE4YqEFQ4tfZBw8cfXmcnCZANJrkPeEYyuL6Cy4fOQhx2rk9PkRVIoLuQPllzQIOWKGstZBzNrE7CID4LVfetW3tJXhv0yQZCdVkhWAoz7tQ6dRQrUNstG79rlgolrvFnIr1A4k0fFOznJUo1BHjsbAV0xgeDZCaeWgZBsTc6PIKftiW5B2JGVOhEJfmfgnpbkmEKFUZD";
+        string accessToken = "EAAPttAPoJgcBS5trP0BY2p6tSa7OOcNMosQF40UM8qd8Dok5N4ZCvsFNfDuQkXkSyIl0V6bLUnAZBrvVjdLp39bAA6mMUYFlnGVd27BAlmZBMGJz8RdgJCNHcE8haTNUzno7IKpaAhmlZCSHAOMkZCTEvpIT7iFEihDlxkdFSABthsToPBRyrfHROMjJqMZBRYZBO8tdg6UkFBvW9dm4cijOrE06hcz8AWm4RnyyGWL9XVJ3RlJtSuDvzd9WgOdHwbYNguDebzdps7mvj6lxdOO";
 
-        //! A futuro, podria ser util que un AI Agent se encarge de redactar el mensaje segun el idioma en que llega el mensaje del usuario
         using (HttpClient client = new HttpClient())
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -111,10 +124,89 @@ public class CommunicationService : ICommunicationService
             if (result.IsSuccessStatusCode)
             {
                 Console.WriteLine($"===Respone Sended at: {DateTime.UtcNow:O}===");
-            } else
+            }
+            else
             {
                 Console.WriteLine($"===Error Sending Response: ({result.StatusCode}) : {result_to_string} ===");
             }
+        }
+
+        return false;
+    }
+
+    //TODO: Modificar almacen de mensaje para vincularlo a user_id en tabla Users
+    public async Task<(bool stored, Guid messageId)> storeMessage(string? message, string sessionId, string wa_id)
+    {
+
+        try
+        {
+            Console.WriteLine("===Trying To Store Message===");
+
+            var user = _context.Users.FirstOrDefault(u => u.wa_id == wa_id);
+
+            Console.WriteLine($"===User Founded In .storeMessage Function: {user}===");
+
+            if (user != null)
+            {
+                Guid userId = user.user_id;
+                Console.WriteLine($"===user_id: {userId}===");
+                Message newMessage = new Message
+                {
+                    id = Guid.NewGuid(),
+                    user_id = userId,
+                    session_id = Guid.Parse(sessionId),
+                    content = message,
+                    source = 1,
+                    sent_at = DateTime.UtcNow
+                };
+
+                _context.Messages.Add(newMessage);
+                await _context.SaveChangesAsync();
+                
+                Guid messageId = newMessage.id;
+                return (false, messageId);
+            }
+            else
+            {
+                return (false, Guid.NewGuid());
+            }
+
+        }
+        catch (Exception errorStoringMessage)
+        {
+            Console.WriteLine($"Error Storing Message: {errorStoringMessage}");
+            return (false, Guid.NewGuid());
+        }
+
+        return (false, Guid.NewGuid());
+    }
+
+
+    //TODO: Agregar soporte para almacenar la respuesta del Agente en la BD
+    public async Task<bool> storeResponse(string response, string sessionId, Guid messageId)
+    {
+        try
+        {
+            Console.WriteLine("===Trying To Store Response===");
+
+                Response newResponse= new Response
+                {
+                    id = Guid.NewGuid(),
+                    response_to = messageId,
+                    session_id = Guid.Parse(sessionId),
+                    content = response,
+                    source = 1,
+                    sent_at = DateTime.UtcNow
+                };
+
+                _context.Responses.Add(newResponse);
+                await _context.SaveChangesAsync();
+
+        }
+        catch (Exception errorStoringResponse)
+        {
+            Console.WriteLine($"Error Storing Message: {errorStoringResponse}");
+            return false;
         }
 
         return false;

@@ -10,6 +10,7 @@ public class User
     public string password { get; set; } = "";
     public DateTime registered_at { get; set; }
     public string wa_id { get; set; } = "";
+    public int role { get; set; }
     public ICollection<Session> sessions { get; set; } = new List<Session>();
     public ICollection<Message> messages { get; set; } = new List<Message>();
 }

@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using Karina.Api.Data;
 using Karina.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Karina.Api.Services;
 
@@ -14,7 +15,7 @@ public class SessionService : ISessionService
         _context = context;
     }
 
-    public async Task<(bool isSessionCreated, string? session_id)> createSession(string user)
+    public async Task<(bool isSessionCreated, string? session_id)> createSession(string user, Guid userId)
     {
 
         Console.WriteLine("===Trying To Establish A Session===");
@@ -26,13 +27,13 @@ public class SessionService : ISessionService
 
         try
         {
-            
+
             using (HttpClient client = new HttpClient())
             {
                 using var content = new StringContent(
                     "{}",
                     Encoding.UTF8,
-                    "application/json"  
+                    "application/json"
                 );
                 HttpResponseMessage response = await client.PostAsync(url, content);
                 response.EnsureSuccessStatusCode();
@@ -45,38 +46,30 @@ public class SessionService : ISessionService
                 {
                     Console.WriteLine($"===Session Created At: {DateTime.UtcNow:O}===");
 
-                    Session newSession = new Session
+                    var result = await createSessionInDB(session, userId);
+
+                    bool resultValidation = await validateSession(session_string);
+
+                    if (resultValidation == true)
                     {
-                        session_id = session,
-                        user_id = Guid.Parse("dfc7f9b2-6464-4f74-a5cb-7649c636ee01"),
-                        created_at = DateTime.UtcNow
-                    };
-
-                    _context.Sessions.Add(newSession);
-                    await _context.SaveChangesAsync();
-
-                    // await _context.Sessions.AddAsync(session);
-
-                    // bool sessionConfirmed = checkSession(session);
-
-                    // if (sessionConfirmed == true)
-                    // {   
-                    //     Console.WriteLine($"===Session Created And Confirmed===");
-                    //     return (true, session);
-                    // } else
-                    // {
-                    //     Console.WriteLine($"===Session Impossible To Confirm===");
-                    //     return (false, session);
-                    // }
-                    return (true, session_string);
-                } else
+                        Console.WriteLine($"===Session Created And Confirmed===");
+                        return (true, session_string);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"===Session Impossible To Confirm===");
+                        return (false, "invalid");
+                    }
+                }
+                else
                 {
                     Console.WriteLine($"===Error Creating Session: ({response.StatusCode}) {response_to_json}===");
-                    return (false, session_string);
+                    return (false, "invalid");
                 }
             }
 
-        } catch (Exception sessionError)
+        }
+        catch (Exception sessionError)
         {
             Console.WriteLine($"=== Error Creating Session: {sessionError} ===");
         }
@@ -84,12 +77,35 @@ public class SessionService : ISessionService
         return (false, session_string);
     }
 
-    public async Task<bool> createSessionInBd()
+    public async Task<bool> createSessionInDB(Guid session, Guid userId)
     {
-        return true;
+        try
+        {
+            Console.WriteLine("===Trying to Register Session In Database===");
+
+            Session newSession = new Session
+            {
+                session_id = session,
+                user_id = userId,
+                created_at = DateTime.UtcNow,
+                ended_at = null,
+                last_activity = DateTime.UtcNow
+            };
+
+            _context.Sessions.Add(newSession);
+            await _context.SaveChangesAsync();
+
+            Console.WriteLine("===Session Registered In Database Succesfully===");
+            return true;
+        }
+        catch (Exception errorSessionBD)
+        {
+            Console.WriteLine($"===Error At .createSessionInDB: {errorSessionBD}===");
+            return false;
+        }
     }
 
-    public bool checkSession(string session)
+    public async Task<bool> validateSession(string session)
     {
 
         Console.WriteLine($"===Searching Session===");
@@ -101,4 +117,67 @@ public class SessionService : ISessionService
         return sessionFounded ? true : false;
     }
 
+    //TODO: Crear funcion para validar si existe una sesion activa para el usuario
+    public async Task<(bool isActive, Guid session)> searchSession(Guid userId)
+    {   
+        Console.WriteLine("===Searching An Active Session===");
+        var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null)
+            .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
+        
+        if (searchSession == null || searchSession.ended_at != null)
+        {
+            return (false, Guid.NewGuid());;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        TimeSpan maxInactivity = TimeSpan.FromMinutes(60);
+
+        if (now - searchSession.last_activity < maxInactivity)
+        {
+            Console.WriteLine($"===Active Session Founded: {searchSession.session_id}===");
+            return (true, searchSession.session_id);
+        } else
+        {
+            await finishSession(searchSession.session_id.ToString());
+            return (false, Guid.NewGuid());
+        }
+
+    }
+
+    //TODO: Crear funcion para finalizar sesion
+    public async Task<bool> finishSession(string session)
+    {   
+
+        if (!Guid.TryParse(session, out Guid sessionId))
+        {
+            return false;
+        }
+
+        var searchSession = await _context.Sessions.FirstOrDefaultAsync(s => s.session_id == sessionId);
+
+        if (searchSession == null || searchSession.ended_at != null)
+        {
+            return false;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        TimeSpan maxInactivity = TimeSpan.FromMinutes(60);
+
+        if (now - searchSession.last_activity < maxInactivity)
+        {
+            return false;
+        }
+
+        searchSession.ended_at = now;
+        await _context.SaveChangesAsync();
+        
+        return true;
+    }
+
+    public async Task<bool> updateSession(Guid session)
+    {
+        Console.WriteLine($"===Updating Last Activity For Session: {session.ToString()}===");
+        _context.Sessions.Where(u => u.session_id == session).ExecuteUpdate(p => p.SetProperty(la => la.last_activity, DateTime.UtcNow));
+        return true;
+    }
 }

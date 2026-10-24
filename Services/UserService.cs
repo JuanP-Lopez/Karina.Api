@@ -17,29 +17,31 @@ public class UserService : IUserService
         return true;
     }
 
-    public async Task<bool> unconfirmedUserRegistration(string receivedUser, string receiverWa_id)
+    //TODO: Modificar registro para basarlo en roles
+    public async Task<bool> unconfirmedUserRegistration(string receivedUser, string receivedWa_id)
     {   
         try
         {
-            if(string.IsNullOrWhiteSpace(receivedUser) || string.IsNullOrWhiteSpace(receiverWa_id))
+            if(string.IsNullOrWhiteSpace(receivedUser) || string.IsNullOrWhiteSpace(receivedWa_id))
             {
                 return false;
             }
 
-            Console.WriteLine($"===Received Attributes: {receivedUser}, {receiverWa_id}===");
+            Console.WriteLine($"===Received Attributes: {receivedUser}, {receivedWa_id}===");
 
-            UnconfirmedUser user = new UnconfirmedUser
+            User user = new User
             {
               name = receivedUser,
-              wa_id = receiverWa_id  
+              wa_id = receivedWa_id,
+              role = 1
             };
             
-            _context.UnconfirmedUsers.Add(user);
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
             return true;
-        } catch (Exception unconfirmedError)
+        } catch (Exception userError)
         {
-            Console.WriteLine($"===Error At Unconfirmed User Registration: {unconfirmedError}===");
+            Console.WriteLine($"===Error At Unconfirmed User Registration: {userError}===");
             return false;
         }
     }
