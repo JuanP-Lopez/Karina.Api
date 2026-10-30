@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Karina.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7014a15d39f9681f599e3f5e5715b14f68c72225")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+803645db0a5db273c39796d16dfba0a3eb90db7e")]
 [assembly: System.Reflection.AssemblyProductAttribute("Karina.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Karina.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

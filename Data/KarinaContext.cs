@@ -20,6 +20,8 @@ public class KarinaContext : DbContext
 
     public DbSet<Response> Responses => Set<Response>();
 
+    public DbSet<RandomCode> Codes => Set<RandomCode>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -96,6 +98,19 @@ public class KarinaContext : DbContext
            entity.HasOne(u => u.message).WithOne(r => r.response).HasForeignKey<Response>(u => u.response_to);
            entity.HasOne(u => u.session).WithMany(r => r.responses).HasForeignKey(u => u.session_id);
            entity.HasOne(u => u.source_nav).WithMany(r => r.responses).HasForeignKey(u => u.source);
+        });
+
+        modelBuilder.Entity<RandomCode>(entity =>
+        {
+           entity.ToTable("Codes");
+           entity.HasKey(u => u.id);
+
+           entity.Property(u => u.id).HasColumnName("id");
+           entity.Property(u => u.code).HasColumnName("random_code");
+           entity.Property(u => u.user_id).HasColumnName("user_id");
+           entity.Property(u => u.wa_id).HasColumnName("wa_id");
+
+           entity.HasOne<User>().WithOne(u => u.code).HasForeignKey<RandomCode>(r => r.user_id);
         });
     }
 }

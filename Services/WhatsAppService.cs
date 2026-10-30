@@ -10,16 +10,16 @@ public class WhatsAppService : IWhatsAppService
 {
     private readonly KarinaContext _context;
 
-    private readonly IUserService _userService;
+    private readonly IAuthService _authService;
 
     private readonly ISessionService _sessionService;
 
     private readonly ICommunicationService _communicationService;
 
-    public WhatsAppService(KarinaContext context, IUserService userService, ISessionService sessionService, ICommunicationService communicationService)
+    public WhatsAppService(KarinaContext context, IAuthService authService, ISessionService sessionService, ICommunicationService communicationService)
     {
         _context = context;
-        _userService = userService;
+        _authService = authService;
         _sessionService = sessionService;
         _communicationService = communicationService;
     }
@@ -62,7 +62,7 @@ public class WhatsAppService : IWhatsAppService
                     var newSession = await _sessionService.createSession(name, user_id);
                     string? sessionId = newSession.session_id;
                     await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, sessionId, wa_id, message);
-                    await _userService.unconfirmedUserRegistration(name, wa_id);
+                    await _authService.unconfirmedUserRegistration(name, wa_id);
                     return true;
                 }
 

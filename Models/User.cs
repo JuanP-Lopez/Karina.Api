@@ -13,4 +13,5 @@ public class User
     public int role { get; set; }
     public ICollection<Session> sessions { get; set; } = new List<Session>();
     public ICollection<Message> messages { get; set; } = new List<Message>();
+    public RandomCode? code { get; set; }
 }
