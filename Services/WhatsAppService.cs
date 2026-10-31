@@ -58,11 +58,11 @@ public class WhatsAppService : IWhatsAppService
                 if (role == 0)
                 {
                     Console.WriteLine("User Unregistered");
+                    Guid createdId = await _authService.unconfirmedUserRegistration(name, wa_id);
                     //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
-                    var newSession = await _sessionService.createSession(name, user_id);
+                    var newSession = await _sessionService.createSession(name, createdId);
                     string? sessionId = newSession.session_id;
                     await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, sessionId, wa_id, message);
-                    await _authService.unconfirmedUserRegistration(name, wa_id);
                     return true;
                 }
 
@@ -89,13 +89,15 @@ public class WhatsAppService : IWhatsAppService
                         //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder y luego pedir registro
                         await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, session_id, wa_id, message);
                         Console.WriteLine($"===Sending Registration Message at: {DateTime.UtcNow:O}===");
-                        await sendRegistrationMessage(phoneNumber, phoneNumberId, name);
+                        var resCreateCode = await _authService.createConfirmationCode(wa_id);
+                        string code = resCreateCode.Item2;
+                        await sendRegistrationMessage(phoneNumber, phoneNumberId, name, code);
                         break;
                     case 2:
                         Console.WriteLine("User Confirmed");
                         //TODO: Agregar el manejo del mensaje y la respuesta, el sistema debe responder
                         Console.WriteLine($"===Handling Message at: {DateTime.UtcNow:O}===");
-
+                        await _communicationService.sendMessage(name, phoneNumberId, phoneNumber, session_id, wa_id, message);
                         break;
                 }
             }
@@ -165,7 +167,7 @@ public class WhatsAppService : IWhatsAppService
     *  @param phoneNumberID: es el id del numero del usuario, necesario para armar la URL del endpoint de META a la que se envia
     *   la solicitud
     */
-    public async Task sendRegistrationMessage(string phoneNumber, string phoneNumberId, string name)
+    public async Task sendRegistrationMessage(string phoneNumber, string phoneNumberId, string name, string code)
     {
         Console.WriteLine("===Trying To Send Registration Message===");
 
@@ -173,7 +175,7 @@ public class WhatsAppService : IWhatsAppService
 
         string webUrl = "http://localhost:4200/";
 
-        string accessToken = "EAAPttAPoJgcBS5trP0BY2p6tSa7OOcNMosQF40UM8qd8Dok5N4ZCvsFNfDuQkXkSyIl0V6bLUnAZBrvVjdLp39bAA6mMUYFlnGVd27BAlmZBMGJz8RdgJCNHcE8haTNUzno7IKpaAhmlZCSHAOMkZCTEvpIT7iFEihDlxkdFSABthsToPBRyrfHROMjJqMZBRYZBO8tdg6UkFBvW9dm4cijOrE06hcz8AWm4RnyyGWL9XVJ3RlJtSuDvzd9WgOdHwbYNguDebzdps7mvj6lxdOO";
+        string accessToken = "EAAPttAPoJgcBSztaxC9bjstbSw1S1TcFv7340E1Q1XWTQtzFduoZCtNpriUXHXrvJafzA9Sun0RNPWZB0VVJUdRMjLG27kqMHAh76VBVdwV81lq4j9huDZCqQRwTBZAczRw44922IAqqLLOfUKahq2Tme2NpE949BiNPtUHo6rGG1Wsna8553cqeZAZC8GaEEZARhwup51uOZCm2ZBwiJ3nWzpohvDWpDT9to3gvLCJWFz4riT60ZCarOxwZABs1poLD603ibsFTVoZAZCitUn1Hi6Igx7v0ZD";
 
         //! A futuro, podria ser util que un AI Agent se encarge de redactar el mensaje segun el idioma en que llega el mensaje del usuario
         using (HttpClient client = new HttpClient())
@@ -187,7 +189,7 @@ public class WhatsAppService : IWhatsAppService
                 type = "text",
                 text = new
                 {
-                    body = $"¡Hola, {name}! \n\nParece que no estás registrado; para registrarte, continua con el siguiente enlace: {webUrl}"
+                    body = $"¡Hola, {name}! \n\nParece que no estás registrado; para registrarte, continua con el siguiente enlace: {webUrl}.\nIngresa a crear cuenta y usa el siguiente codigo: {code}"
                 }
             };
 

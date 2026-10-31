@@ -106,7 +106,7 @@ public class KarinaContext : DbContext
            entity.HasKey(u => u.id);
 
            entity.Property(u => u.id).HasColumnName("id");
-           entity.Property(u => u.code).HasColumnName("random_code");
+           entity.Property(u => u.code).HasColumnName("randomcode");
            entity.Property(u => u.user_id).HasColumnName("user_id");
            entity.Property(u => u.wa_id).HasColumnName("wa_id");
 

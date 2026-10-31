@@ -98,7 +98,7 @@ public class CommunicationService : ICommunicationService
 
         string aiResponse = response ?? "";
 
-        string accessToken = "EAAPttAPoJgcBS5trP0BY2p6tSa7OOcNMosQF40UM8qd8Dok5N4ZCvsFNfDuQkXkSyIl0V6bLUnAZBrvVjdLp39bAA6mMUYFlnGVd27BAlmZBMGJz8RdgJCNHcE8haTNUzno7IKpaAhmlZCSHAOMkZCTEvpIT7iFEihDlxkdFSABthsToPBRyrfHROMjJqMZBRYZBO8tdg6UkFBvW9dm4cijOrE06hcz8AWm4RnyyGWL9XVJ3RlJtSuDvzd9WgOdHwbYNguDebzdps7mvj6lxdOO";
+        string accessToken = "EAAPttAPoJgcBSztaxC9bjstbSw1S1TcFv7340E1Q1XWTQtzFduoZCtNpriUXHXrvJafzA9Sun0RNPWZB0VVJUdRMjLG27kqMHAh76VBVdwV81lq4j9huDZCqQRwTBZAczRw44922IAqqLLOfUKahq2Tme2NpE949BiNPtUHo6rGG1Wsna8553cqeZAZC8GaEEZARhwup51uOZCm2ZBwiJ3nWzpohvDWpDT9to3gvLCJWFz4riT60ZCarOxwZABs1poLD603ibsFTVoZAZCitUn1Hi6Igx7v0ZD";
 
         using (HttpClient client = new HttpClient())
         {

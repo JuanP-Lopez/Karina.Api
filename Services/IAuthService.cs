@@ -2,9 +2,11 @@ namespace Karina.Api.Services;
 
 public interface IAuthService
 {
-    public Task<bool> handleUserConfirmation();
 
-    public Task<bool> unconfirmedUserRegistration(string name, string wa_id);
+    public Task<(bool login, AuthResponse? user)> userLogin(SignIn request);
+    public Task<bool> handleUserConfirmation(SignUpRequest request);
 
-    public Task<bool> createConfirmationCode(Guid user_id, string wa_id);
+    public Task<Guid> unconfirmedUserRegistration(string name, string wa_id);
+
+    public Task<(bool, string)> createConfirmationCode(string wa_id);
 }
