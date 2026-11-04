@@ -4,7 +4,6 @@ public class User
 {
     public Guid user_id { get; set; }
     public string name { get; set; } = "";
-    public string? nickname { get; set; }
     public string email { get; set; } = "";
     public string phone_number { get; set; } = "";
     public string password { get; set; } = "";
@@ -13,5 +12,6 @@ public class User
     public int role { get; set; }
     public ICollection<Session> sessions { get; set; } = new List<Session>();
     public ICollection<Message> messages { get; set; } = new List<Message>();
+    public Preference? preferences { get; set; }
     public RandomCode? code { get; set; }
 }

@@ -22,6 +22,8 @@ public class KarinaContext : DbContext
 
     public DbSet<RandomCode> Codes => Set<RandomCode>();
 
+    public DbSet<Preference> Preferences => Set<Preference>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -31,7 +33,6 @@ public class KarinaContext : DbContext
 
            entity.Property(u => u.user_id).HasColumnName("user_id"); 
            entity.Property(u => u.name).HasColumnName("name"); 
-           entity.Property(u => u.nickname).HasColumnName("nickname"); 
            entity.Property(u => u.email).HasColumnName("email"); 
            entity.Property(u => u.phone_number).HasColumnName("phone_number"); 
            entity.Property(u => u.password).HasColumnName("password"); 
@@ -111,6 +112,20 @@ public class KarinaContext : DbContext
            entity.Property(u => u.wa_id).HasColumnName("wa_id");
 
            entity.HasOne<User>().WithOne(u => u.code).HasForeignKey<RandomCode>(r => r.user_id);
+        });
+
+        modelBuilder.Entity<Preference>(entity =>
+        {
+            entity.ToTable("Preferences");
+            entity.HasKey(u => u.id);
+
+            entity.Property(u => u.id).HasColumnName("id");
+            entity.Property(u => u.user_id).HasColumnName("user_id");
+            entity.Property(u => u.nickname).HasColumnName("nickname");
+            entity.Property(u => u.tone).HasColumnName("tone");
+            entity.Property(u => u.language).HasColumnName("language");
+
+            entity.HasOne<User>().WithOne(u => u.preferences).HasForeignKey<Preference>(p => p.user_id);
         });
     }
 }
