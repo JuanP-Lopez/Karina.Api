@@ -10,9 +10,15 @@ public class SessionService : ISessionService
 {
     private readonly KarinaContext _context;
 
-    public SessionService(KarinaContext context)
+    private readonly IConfiguration _configuration;
+
+    private readonly string _agentBaseUrl;
+
+    public SessionService(IConfiguration configuration, KarinaContext context)
     {
         _context = context;
+        _configuration = configuration;
+        _agentBaseUrl = _configuration["Agent:GeminiUrl"] ?? throw new InvalidOperationException("KarinaAgent:BaseUrl is not configured.");
     }
 
     public async Task<(bool isSessionCreated, string? session_id)> createSession(string user, Guid userId)
@@ -23,7 +29,7 @@ public class SessionService : ISessionService
         Guid session = Guid.NewGuid();
         string session_string = session.ToString();
 
-        string url = $"http://127.0.0.1:8000/apps/karina_agent/users/{Uri.EscapeDataString(user)}/sessions/{Uri.EscapeDataString(session_string)}";
+        string url = $"{_agentBaseUrl.TrimEnd('/')}/apps/karina_agent/users/{Uri.EscapeDataString(user)}/sessions/{Uri.EscapeDataString(session_string)}";
 
         try
         {
