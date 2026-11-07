@@ -20,6 +20,8 @@ public class CommunicationService : ICommunicationService
 
     private readonly string _accessToken;
 
+    private readonly string _agentBaseUrl;
+
     public CommunicationService(IConfiguration configuration, KarinaContext context, ISessionService sessionService, IUserStatisticsService userStatisticsService)
     {
         _context = context;
@@ -27,6 +29,7 @@ public class CommunicationService : ICommunicationService
         _userStatisticsService = userStatisticsService;
         _configuration = configuration;
         _accessToken = _configuration["Meta:WhatsappToken"];
+        _agentBaseUrl = _configuration["Agent:GeminiUrl"] ?? throw new InvalidOperationException("KarinaAgent:BaseUrl is not configured.");
     }
 
 
@@ -39,7 +42,7 @@ public class CommunicationService : ICommunicationService
         var user = _context.Users.FirstOrDefault(u => u.wa_id == wa_id);
         var preferences = await _userStatisticsService.getUserPreferences(user.user_id);
 
-        string url = "http://127.0.0.1:8000/run/";
+        string url = $"{_agentBaseUrl.TrimEnd('/')}/run/";
 
         var request = new KarinaRequest
         {
@@ -242,7 +245,7 @@ public class CommunicationService : ICommunicationService
             var preferences = await _userStatisticsService
                 .getUserPreferences(userId);
 
-            string url = "http://127.0.0.1:8000/run/";
+            string url = $"{_agentBaseUrl.TrimEnd('/')}/run/";
 
             var request = new KarinaRequest
             {
