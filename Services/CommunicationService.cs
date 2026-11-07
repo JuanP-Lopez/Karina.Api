@@ -81,15 +81,32 @@ public class CommunicationService : ICommunicationService
                 // response.EnsureSuccessStatusCode();
 
                 string response_to_json = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("=== ADK RESPONSE ===");
+                Console.WriteLine($"Status Code: {(int)response.StatusCode}");
+                Console.WriteLine($"Is Success: {response.IsSuccessStatusCode}");
+                Console.WriteLine($"Content Type: {response.Content.Headers.ContentType}");
+                Console.WriteLine($"Body: {response_to_json}");
+                Console.WriteLine("=== END ADK RESPONSE ===");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException($"ADK Error {(int)response.StatusCode}: {response_to_json}");
+                }
 
                 List<KarinaResponse>? result = JsonSerializer.Deserialize<List<KarinaResponse>>(response_to_json);
+                if(result == null || result.Count == 0)
+                {
+                    throw new InvalidOperationException("ADK returned an empty response");
+                }
 
                 string? responseText = result?.Where(e => e.Content != null)
                     .SelectMany(e => e.Content!.Parts).Select(p => p.Text).LastOrDefault(text => !string.IsNullOrWhiteSpace(text));
+                if (string.IsNullOrWhiteSpace(responseText))
+                {
+                    throw new InvalidOperationException("ADK did not return a valid text response");
+                }
 
                 bool resultStoreResponse = await storeResponse(responseText, sessionId, message_id);
-
-                Console.WriteLine($"===ADK Response To Message: {response_to_json}===");
 
                 Console.WriteLine($"===AI Extracted Response: {responseText}===");
 
