@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 WORKDIR /src
-COPY karina.Api.csproj ./
+COPY Karina.Api.csproj ./
 RUN dotnet restore
 
 COPY . .
