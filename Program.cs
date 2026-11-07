@@ -12,6 +12,13 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+Console.WriteLine($"Database connection configured: {!string.IsNullOrWhiteSpace(connectionString)}");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "No se encontró la cadena de conexión ConnectionStrings:DefaultConnection."
+    );
+}
 
 builder.Services.AddDbContext<KarinaContext>(options => options.UseNpgsql(connectionString));
 
