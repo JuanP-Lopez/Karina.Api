@@ -16,12 +16,18 @@ public class WhatsAppService : IWhatsAppService
 
     private readonly ICommunicationService _communicationService;
 
-    public WhatsAppService(KarinaContext context, IAuthService authService, ISessionService sessionService, ICommunicationService communicationService)
+    private readonly IConfiguration _configuration;
+
+    private readonly string _accessToken;
+
+    public WhatsAppService(IConfiguration configuration, KarinaContext context, IAuthService authService, ISessionService sessionService, ICommunicationService communicationService)
     {
         _context = context;
         _authService = authService;
         _sessionService = sessionService;
         _communicationService = communicationService;
+        _configuration = configuration;
+        _accessToken = _configuration["Meta:WhatsappToken"];
     }
 
     public async Task<bool> incomingMessage(string payload)
@@ -175,12 +181,12 @@ public class WhatsAppService : IWhatsAppService
 
         string webUrl = "http://localhost:4200/";
 
-        string accessToken = "EAAPttAPoJgcBSztaxC9bjstbSw1S1TcFv7340E1Q1XWTQtzFduoZCtNpriUXHXrvJafzA9Sun0RNPWZB0VVJUdRMjLG27kqMHAh76VBVdwV81lq4j9huDZCqQRwTBZAczRw44922IAqqLLOfUKahq2Tme2NpE949BiNPtUHo6rGG1Wsna8553cqeZAZC8GaEEZARhwup51uOZCm2ZBwiJ3nWzpohvDWpDT9to3gvLCJWFz4riT60ZCarOxwZABs1poLD603ibsFTVoZAZCitUn1Hi6Igx7v0ZD";
+        // string accessToken = "";
 
         //! A futuro, podria ser util que un AI Agent se encarge de redactar el mensaje segun el idioma en que llega el mensaje del usuario
         using (HttpClient client = new HttpClient())
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
 
             var payload = new
             {

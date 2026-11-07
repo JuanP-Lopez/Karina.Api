@@ -16,4 +16,7 @@ public interface ISessionService
 
     public Task<bool> updateSession(Guid session);
 
+    //! Implementacion del portal web
+    Task<(bool isActive, Guid session)> searchWebSession(Guid userId);
+
 }

@@ -10,4 +10,7 @@ public interface ICommunicationService
 
     public Task<bool> storeResponse(string response, string sessionId, Guid messageId);
 
+    //! Implementacion de compatibilidad con portal web
+    Task<string?> generateResponse(Guid userId, string agentUserId, string sessionId, string userMessage);
+
 }

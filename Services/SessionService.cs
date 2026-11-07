@@ -119,14 +119,14 @@ public class SessionService : ISessionService
 
     //TODO: Crear funcion para validar si existe una sesion activa para el usuario
     public async Task<(bool isActive, Guid session)> searchSession(Guid userId)
-    {   
+    {
         Console.WriteLine("===Searching An Active Session===");
         var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null)
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
-        
+
         if (searchSession == null || searchSession.ended_at != null)
         {
-            return (false, Guid.NewGuid());;
+            return (false, Guid.NewGuid()); ;
         }
 
         DateTime now = DateTime.UtcNow;
@@ -136,7 +136,8 @@ public class SessionService : ISessionService
         {
             Console.WriteLine($"===Active Session Founded: {searchSession.session_id}===");
             return (true, searchSession.session_id);
-        } else
+        }
+        else
         {
             await finishSession(searchSession.session_id.ToString());
             return (false, Guid.NewGuid());
@@ -146,7 +147,7 @@ public class SessionService : ISessionService
 
     //TODO: Crear funcion para finalizar sesion
     public async Task<bool> finishSession(string session)
-    {   
+    {
 
         if (!Guid.TryParse(session, out Guid sessionId))
         {
@@ -170,14 +171,51 @@ public class SessionService : ISessionService
 
         searchSession.ended_at = now;
         await _context.SaveChangesAsync();
-        
+
         return true;
     }
 
     public async Task<bool> updateSession(Guid session)
     {
         Console.WriteLine($"===Updating Last Activity For Session: {session.ToString()}===");
-        _context.Sessions.Where(u => u.session_id == session).ExecuteUpdate(p => p.SetProperty(la => la.last_activity, DateTime.UtcNow));
+        await _context.Sessions.Where(u => u.session_id == session).ExecuteUpdateAsync(p => p.SetProperty(la => la.last_activity, DateTime.UtcNow));
         return true;
+    }
+
+    //! Implementacion de la compatibilidad con portal web
+    public async Task<(bool isActive, Guid session)> searchWebSession(Guid userId)
+    {
+        Console.WriteLine("=== Searching An Active Web Session ===");
+
+        var webSession = await _context.Sessions
+            .Where(s =>
+                s.user_id == userId &&
+                s.ended_at == null &&
+                s.messages.Any(m => m.source == 2))
+            .OrderByDescending(s => s.created_at)
+            .FirstOrDefaultAsync();
+
+        if (webSession == null)
+        {
+            return (false, Guid.NewGuid());
+        }
+
+        DateTime now = DateTime.UtcNow;
+        TimeSpan maxInactivity = TimeSpan.FromMinutes(60);
+
+        DateTime lastActivity = webSession.last_activity ?? webSession.created_at;
+
+        if (now - lastActivity < maxInactivity)
+        {
+            Console.WriteLine(
+                $"=== Active Web Session Founded: {webSession.session_id} ==="
+            );
+
+            return (true, webSession.session_id);
+        }
+
+        await finishSession(webSession.session_id.ToString());
+
+        return (false, Guid.NewGuid());
     }
 }

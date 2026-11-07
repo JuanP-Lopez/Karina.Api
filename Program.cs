@@ -5,6 +5,7 @@ using Karina.Api.Data;
 using Karina.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT");
 
 builder.Services.AddControllers();
 
@@ -20,6 +21,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();
 builder.Services.AddScoped<IUserStatisticsService, UserStatisticsService>();
+builder.Services.AddScoped<IWebChatService, WebChatService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
   .AddCookie(options =>
@@ -50,14 +52,24 @@ builder.Services.AddCors(options =>
 {
   options.AddPolicy("KarinaRequests", policy =>
   {
-     policy.WithOrigins("http://localhost:4200" /*URL de Railway para web*/)
+     policy.WithOrigins("http://localhost:4200", "https://web-production-d9525.up.railway.app")
      .AllowAnyHeader().AllowAnyMethod().AllowCredentials();
   });
 }
 );
 
+if (!string.IsNullOrEmpty(port))
+{
+  builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 var app = builder.Build();
-app.UseHttpsRedirection();
+
+if (app.Environment.IsDevelopment())
+{
+  app.UseHttpsRedirection();
+}
+
 app.UseRouting();
 app.UseCors("KarinaRequests");
 app.UseAuthentication();

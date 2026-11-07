@@ -1,10 +1,10 @@
 using System.Net.Http.Headers;
+using Karina.Api.Services;
 using System.Text;
 using System.Text.Json;
 using Karina.Api.Data;
 using Karina.Api.DTOs.KarinaAgent;
 using Karina.Api.Models;
-// using Karina.Api.Models.Whatsapp;
 
 namespace Karina.Api.Services;
 
@@ -14,10 +14,19 @@ public class CommunicationService : ICommunicationService
 
     private readonly ISessionService _sessionService;
 
-    public CommunicationService(KarinaContext context, ISessionService sessionService)
+    private readonly IUserStatisticsService _userStatisticsService;
+
+    private readonly IConfiguration _configuration;
+
+    private readonly string _accessToken;
+
+    public CommunicationService(IConfiguration configuration, KarinaContext context, ISessionService sessionService, IUserStatisticsService userStatisticsService)
     {
         _context = context;
         _sessionService = sessionService;
+        _userStatisticsService = userStatisticsService;
+        _configuration = configuration;
+        _accessToken = _configuration["Meta:WhatsappToken"];
     }
 
 
@@ -25,6 +34,10 @@ public class CommunicationService : ICommunicationService
     public async Task<bool> sendMessage(string name, string phoneNumberId, string phoneNumber, string sessionId, string wa_id, string userMessage)
     {
         Console.WriteLine("===Trying To Send User's Message to AI===");
+
+        Console.WriteLine("===Recovering User Preferences===");
+        var user = _context.Users.FirstOrDefault(u => u.wa_id == wa_id);
+        var preferences = await _userStatisticsService.getUserPreferences(user.user_id);
 
         string url = "http://127.0.0.1:8000/run/";
 
@@ -38,7 +51,7 @@ public class CommunicationService : ICommunicationService
                 role = "user",
                 parts = [
                     new Parts {
-                        text = userMessage
+                        text = $"[Preferencias] Apodo: {preferences.nickname} Tono: {preferences.tone} Personalidad: {preferences.language} [Mensaje] {userMessage}"
                     }
                 ]
             }
@@ -98,11 +111,11 @@ public class CommunicationService : ICommunicationService
 
         string aiResponse = response ?? "";
 
-        string accessToken = "EAAPttAPoJgcBSztaxC9bjstbSw1S1TcFv7340E1Q1XWTQtzFduoZCtNpriUXHXrvJafzA9Sun0RNPWZB0VVJUdRMjLG27kqMHAh76VBVdwV81lq4j9huDZCqQRwTBZAczRw44922IAqqLLOfUKahq2Tme2NpE949BiNPtUHo6rGG1Wsna8553cqeZAZC8GaEEZARhwup51uOZCm2ZBwiJ3nWzpohvDWpDT9to3gvLCJWFz4riT60ZCarOxwZABs1poLD603ibsFTVoZAZCitUn1Hi6Igx7v0ZD";
+        // string accessToken = _configuration["Meta:WhatsappToken"];
 
         using (HttpClient client = new HttpClient())
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
 
             var payload = new
             {
@@ -162,7 +175,7 @@ public class CommunicationService : ICommunicationService
 
                 _context.Messages.Add(newMessage);
                 await _context.SaveChangesAsync();
-                
+
                 Guid messageId = newMessage.id;
                 return (false, messageId);
             }
@@ -189,18 +202,18 @@ public class CommunicationService : ICommunicationService
         {
             Console.WriteLine("===Trying To Store Response===");
 
-                Response newResponse= new Response
-                {
-                    id = Guid.NewGuid(),
-                    response_to = messageId,
-                    session_id = Guid.Parse(sessionId),
-                    content = response,
-                    source = 1,
-                    sent_at = DateTime.UtcNow
-                };
+            Response newResponse = new Response
+            {
+                id = Guid.NewGuid(),
+                response_to = messageId,
+                session_id = Guid.Parse(sessionId),
+                content = response,
+                source = 1,
+                sent_at = DateTime.UtcNow
+            };
 
-                _context.Responses.Add(newResponse);
-                await _context.SaveChangesAsync();
+            _context.Responses.Add(newResponse);
+            await _context.SaveChangesAsync();
 
         }
         catch (Exception errorStoringResponse)
@@ -211,4 +224,90 @@ public class CommunicationService : ICommunicationService
 
         return false;
     }
+
+    //! Implementacion de compatibilidad con portal web
+    // Genera una respuesta del agente para el portal web
+    public async Task<string?> generateResponse(
+        Guid userId,
+        string agentUserId,
+        string sessionId,
+        string userMessage)
+    {
+        Console.WriteLine("=== Generating Web Chat Response ===");
+
+        try
+        {
+            Console.WriteLine("=== Recovering User Preferences ===");
+
+            var preferences = await _userStatisticsService
+                .getUserPreferences(userId);
+
+            string url = "http://127.0.0.1:8000/run/";
+
+            var request = new KarinaRequest
+            {
+                app_name = "karina_agent",
+                user_id = agentUserId,
+                session_id = sessionId,
+                new_message = new NewMessage
+                {
+                    role = "user",
+                    parts =
+                    [
+                        new Parts
+                    {
+                        text = $"[Preferencias] Apodo: {preferences?.nickname} Tono: {preferences?.tone} Personalidad: {preferences?.language} [Mensaje] {userMessage}"
+                    }
+                    ]
+                }
+            };
+
+            using HttpClient client = new HttpClient();
+
+            string messageJson = JsonSerializer.Serialize(request);
+
+            using var content = new StringContent(
+                messageJson,
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            HttpResponseMessage response = await client.PostAsync(url, content);
+
+            string responseJson = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"=== ADK Status: {response.StatusCode} ===");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"=== ADK Error: {responseJson} ===");
+                return null;
+            }
+
+            List<KarinaResponse>? result =
+                JsonSerializer.Deserialize<List<KarinaResponse>>(responseJson);
+
+            string? responseText = result?
+                .Where(e => e.Content != null)
+                .SelectMany(e => e.Content!.Parts)
+                .Select(p => p.Text)
+                .LastOrDefault(text => !string.IsNullOrWhiteSpace(text));
+
+            if (string.IsNullOrWhiteSpace(responseText))
+            {
+                Console.WriteLine("=== ADK Returned An Empty Response ===");
+                return null;
+            }
+
+            Console.WriteLine($"=== AI Response: {responseText} ===");
+
+            return responseText;
+        }
+        catch (Exception error)
+        {
+            Console.WriteLine($"=== Error Generating AI Response: {error} ===");
+            return null;
+        }
+    }
+
 }
