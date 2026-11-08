@@ -127,7 +127,8 @@ public class SessionService : ISessionService
     public async Task<(bool isActive, Guid session)> searchSession(Guid userId)
     {
         Console.WriteLine("===Searching An Active Session===");
-        var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null)
+        var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null 
+        && s.messages.Any(m => m.source == 1))
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
 
         if (searchSession == null || searchSession.ended_at != null)
