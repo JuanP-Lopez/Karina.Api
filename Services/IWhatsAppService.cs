@@ -11,4 +11,7 @@ public interface IWhatsAppService
 
     Task sendRegistrationMessage(string phoneNumber, string phoneNumberId, string name, string code);
 
+    //! Incorporacion de automatizaciones
+    Task<bool> SendTextMessageAsync(string recipient, string message,CancellationToken cancellationToken = default);
+
 }

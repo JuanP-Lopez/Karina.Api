@@ -10,6 +10,8 @@ public class WhatsAppService : IWhatsAppService
 {
     private readonly KarinaContext _context;
 
+    private readonly IHttpClientFactory _httpClientFactory;
+
     private readonly IAuthService _authService;
 
     private readonly ISessionService _sessionService;
@@ -20,8 +22,9 @@ public class WhatsAppService : IWhatsAppService
 
     private readonly string _accessToken;
 
-    public WhatsAppService(IConfiguration configuration, KarinaContext context, IAuthService authService, ISessionService sessionService, ICommunicationService communicationService)
+    public WhatsAppService(IHttpClientFactory httpClientFactory, IConfiguration configuration, KarinaContext context, IAuthService authService, ISessionService sessionService, ICommunicationService communicationService)
     {
+        _httpClientFactory = httpClientFactory;
         _context = context;
         _authService = authService;
         _sessionService = sessionService;
@@ -77,7 +80,7 @@ public class WhatsAppService : IWhatsAppService
                 var isActive = activeSession.isActive;
 
                 if (isActive == true)
-                {   
+                {
                     Console.WriteLine("===Using Active Session===");
                     session_id = activeSession.session.ToString();
                 }
@@ -179,7 +182,7 @@ public class WhatsAppService : IWhatsAppService
 
         string url = $" https://graph.facebook.com/v25.0/{phoneNumberId}/messages";
 
-        string webUrl = "http://localhost:4200/";
+        string webUrl = "https://web-production-d9525.up.railway.app";
 
         // string accessToken = "";
 
@@ -214,6 +217,54 @@ public class WhatsAppService : IWhatsAppService
                 Console.WriteLine($"===Error Sending Registration Message: ({response.StatusCode}) : {response_to_string} ===");
             }
         }
+    }
+
+    //! Implementacion para enviar mensajes sin interaccion del usuario, importante para automatizaciones
+    public async Task<bool> SendTextMessageAsync(string recipient, string message, CancellationToken cancellationToken = default)
+    {
+        string phoneNumberId = _configuration["Meta:PhoneNumberId"] ?? throw new InvalidOperationException("Meta:PhoneNumberId no está configurado.");
+
+        string url =$"https://graph.facebook.com/v25.0/{phoneNumberId}/messages";
+
+        var client = _httpClientFactory.CreateClient();
+
+        client.DefaultRequestHeaders.Authorization =new AuthenticationHeaderValue("Bearer", _accessToken);
+
+        var payload = new
+        {
+            messaging_product = "whatsapp",
+            to = recipient,
+            type = "text",
+            text = new
+            {
+                body = message
+            }
+        };
+
+        string json = JsonSerializer.Serialize(payload);
+
+        using var content = new StringContent(
+            json,
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await client.PostAsync(
+            url,
+            content,
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            string error = await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+            Console.WriteLine(
+                $"=== WhatsApp Sending Error: {response.StatusCode} - {error} ===");
+
+            return false;
+        }
+
+        return true;
     }
 
 }

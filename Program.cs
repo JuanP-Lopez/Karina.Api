@@ -29,6 +29,14 @@ builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();
 builder.Services.AddScoped<IUserStatisticsService, UserStatisticsService>();
 builder.Services.AddScoped<IWebChatService, WebChatService>();
+builder.Services.AddScoped<IAutomationService, AutomationService>();
+builder.Services.AddHostedService<AutomationScheduler>();
+
+builder.Services.AddHttpClient("OpenMeteo", client =>
+{
+    client.BaseAddress = new Uri("https://api.open-meteo.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
   .AddCookie(options =>

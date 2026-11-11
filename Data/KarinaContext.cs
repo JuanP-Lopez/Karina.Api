@@ -24,21 +24,25 @@ public class KarinaContext : DbContext
 
     public DbSet<Preference> Preferences => Set<Preference>();
 
+    public DbSet<Automation> Automations { get; set; }
+
+    public DbSet<UserAutomation> UsersAutomations { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
         {
-           entity.ToTable("Users");
-           entity.HasKey(u => u.user_id);
+            entity.ToTable("Users");
+            entity.HasKey(u => u.user_id);
 
-           entity.Property(u => u.user_id).HasColumnName("user_id"); 
-           entity.Property(u => u.name).HasColumnName("name"); 
-           entity.Property(u => u.email).HasColumnName("email"); 
-           entity.Property(u => u.phone_number).HasColumnName("phone_number"); 
-           entity.Property(u => u.password).HasColumnName("password"); 
-           entity.Property(u => u.registered_at).HasColumnName("registered_at");
-           entity.Property(u => u.wa_id).HasColumnName("wa_id");
-           entity.Property(u => u.role).HasColumnName("role");
+            entity.Property(u => u.user_id).HasColumnName("user_id");
+            entity.Property(u => u.name).HasColumnName("name");
+            entity.Property(u => u.email).HasColumnName("email");
+            entity.Property(u => u.phone_number).HasColumnName("phone_number");
+            entity.Property(u => u.password).HasColumnName("password");
+            entity.Property(u => u.registered_at).HasColumnName("registered_at");
+            entity.Property(u => u.wa_id).HasColumnName("wa_id");
+            entity.Property(u => u.role).HasColumnName("role");
         });
 
         modelBuilder.Entity<Session>(entity =>
@@ -67,51 +71,51 @@ public class KarinaContext : DbContext
 
         modelBuilder.Entity<Message>(entity =>
         {
-           entity.ToTable("Messages");
-           entity.HasKey(u => u.id);
+            entity.ToTable("Messages");
+            entity.HasKey(u => u.id);
 
-           entity.Property(u => u.id).HasColumnName("id");
-           entity.Property(u => u.user_id).HasColumnName("user_id");
-           entity.Property(u => u.session_id).HasColumnName("session_id");
-           entity.Property(u => u.header).HasColumnName("header");
-           entity.Property(u => u.content).HasColumnName("content");
-           entity.Property(u => u.source).HasColumnName("source");
-           entity.Property(u => u.sent_at).HasColumnName("sent_at");
+            entity.Property(u => u.id).HasColumnName("id");
+            entity.Property(u => u.user_id).HasColumnName("user_id");
+            entity.Property(u => u.session_id).HasColumnName("session_id");
+            entity.Property(u => u.header).HasColumnName("header");
+            entity.Property(u => u.content).HasColumnName("content");
+            entity.Property(u => u.source).HasColumnName("source");
+            entity.Property(u => u.sent_at).HasColumnName("sent_at");
 
-           entity.HasOne(u => u.user).WithMany(r => r.messages).HasForeignKey(u => u.user_id);
-           entity.HasOne(u => u.session).WithMany(r => r.messages).HasForeignKey(u => u.session_id);
-           entity.HasOne(u => u.source_nav).WithMany(r => r.messages).HasForeignKey(u => u.source);
+            entity.HasOne(u => u.user).WithMany(r => r.messages).HasForeignKey(u => u.user_id);
+            entity.HasOne(u => u.session).WithMany(r => r.messages).HasForeignKey(u => u.session_id);
+            entity.HasOne(u => u.source_nav).WithMany(r => r.messages).HasForeignKey(u => u.source);
         });
 
         modelBuilder.Entity<Response>(entity =>
         {
-           entity.ToTable("Responses");
-           entity.HasKey(u => u.id);
+            entity.ToTable("Responses");
+            entity.HasKey(u => u.id);
 
-           entity.Property(u => u.id).HasColumnName("id");
-           entity.Property(u => u.response_to).HasColumnName("response_to");
-           entity.Property(u => u.session_id).HasColumnName("session_id");
-           entity.Property(u => u.header).HasColumnName("header");
-           entity.Property(u => u.content).HasColumnName("content");
-           entity.Property(u => u.source).HasColumnName("source");
-           entity.Property(u => u.sent_at).HasColumnName("sent_at");
+            entity.Property(u => u.id).HasColumnName("id");
+            entity.Property(u => u.response_to).HasColumnName("response_to");
+            entity.Property(u => u.session_id).HasColumnName("session_id");
+            entity.Property(u => u.header).HasColumnName("header");
+            entity.Property(u => u.content).HasColumnName("content");
+            entity.Property(u => u.source).HasColumnName("source");
+            entity.Property(u => u.sent_at).HasColumnName("sent_at");
 
-           entity.HasOne(u => u.message).WithOne(r => r.response).HasForeignKey<Response>(u => u.response_to);
-           entity.HasOne(u => u.session).WithMany(r => r.responses).HasForeignKey(u => u.session_id);
-           entity.HasOne(u => u.source_nav).WithMany(r => r.responses).HasForeignKey(u => u.source);
+            entity.HasOne(u => u.message).WithOne(r => r.response).HasForeignKey<Response>(u => u.response_to);
+            entity.HasOne(u => u.session).WithMany(r => r.responses).HasForeignKey(u => u.session_id);
+            entity.HasOne(u => u.source_nav).WithMany(r => r.responses).HasForeignKey(u => u.source);
         });
 
         modelBuilder.Entity<RandomCode>(entity =>
         {
-           entity.ToTable("Codes");
-           entity.HasKey(u => u.id);
+            entity.ToTable("Codes");
+            entity.HasKey(u => u.id);
 
-           entity.Property(u => u.id).HasColumnName("id");
-           entity.Property(u => u.code).HasColumnName("randomcode");
-           entity.Property(u => u.user_id).HasColumnName("user_id");
-           entity.Property(u => u.wa_id).HasColumnName("wa_id");
+            entity.Property(u => u.id).HasColumnName("id");
+            entity.Property(u => u.code).HasColumnName("randomcode");
+            entity.Property(u => u.user_id).HasColumnName("user_id");
+            entity.Property(u => u.wa_id).HasColumnName("wa_id");
 
-           entity.HasOne<User>().WithOne(u => u.code).HasForeignKey<RandomCode>(r => r.user_id);
+            entity.HasOne<User>().WithOne(u => u.code).HasForeignKey<RandomCode>(r => r.user_id);
         });
 
         modelBuilder.Entity<Preference>(entity =>
@@ -126,6 +130,42 @@ public class KarinaContext : DbContext
             entity.Property(u => u.language).HasColumnName("language");
 
             entity.HasOne<User>().WithOne(u => u.preferences).HasForeignKey<Preference>(p => p.user_id);
+        });
+
+        modelBuilder.Entity<Automation>(entity =>
+        {
+            entity.ToTable("Automations");
+
+            entity.HasKey(a => a.automation_id);
+
+            entity.Property(a => a.automation_id).HasDefaultValueSql("gen_random_uuid()").ValueGeneratedOnAdd();
+            entity.Property(a => a.name).HasMaxLength(100).IsRequired();
+            entity.Property(a => a.description);
+        });
+
+        modelBuilder.Entity<UserAutomation>(entity =>
+        {
+            entity.ToTable("UsersAutomations");
+
+            entity.HasKey(ua => ua.id);
+            entity.Property(ua => ua.id).HasDefaultValueSql("gen_random_uuid()").ValueGeneratedOnAdd();
+            entity.Property(ua => ua.automation_id).HasColumnName("automation_id");
+
+            entity.HasIndex(ua => new
+            {
+                ua.user_id,
+                ua.automation_id
+            }).IsUnique();
+
+            entity.HasOne(ua => ua.User)
+                .WithMany()
+                .HasForeignKey(ua => ua.user_id)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ua => ua.Automation)
+                .WithMany(a => a.users_automations)
+                .HasForeignKey(ua => ua.automation_id)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
