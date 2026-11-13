@@ -1,4 +1,3 @@
-
 using System.Text.Json.Serialization;
 
 namespace Karina.Api.DTOs.KarinaAgent;

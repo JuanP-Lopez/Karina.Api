@@ -52,20 +52,24 @@ public class SessionService : ISessionService
                 {
                     Console.WriteLine($"===Session Created At: {DateTime.UtcNow:O}===");
 
-                    var result = await createSessionInDB(session, userId);
+                    bool stored = await createSessionInDB(session, userId);
+
+                    if (!stored)
+                    {
+                        Console.WriteLine("=== Failed To Store Session In Database ===");
+                        return (false, null);
+                    }
 
                     bool resultValidation = await validateSession(session_string);
 
-                    if (resultValidation == true)
+                    if (resultValidation)
                     {
-                        Console.WriteLine($"===Session Created And Confirmed===");
+                        Console.WriteLine("=== Session Created And Confirmed ===");
                         return (true, session_string);
                     }
-                    else
-                    {
-                        Console.WriteLine($"===Session Impossible To Confirm===");
-                        return (false, "invalid");
-                    }
+
+                    Console.WriteLine("=== Session Impossible To Confirm ===");
+                    return (false, null);
                 }
                 else
                 {
@@ -116,7 +120,7 @@ public class SessionService : ISessionService
 
         Console.WriteLine($"===Searching Session===");
 
-        bool sessionFounded = _context.Sessions.Any(u => u.session_id.ToString() == session);
+        bool sessionFounded = await _context.Sessions.AnyAsync(u => u.session_id.ToString() == session);
 
         Console.WriteLine($"===Session Founded: {sessionFounded}===");
 
@@ -127,7 +131,7 @@ public class SessionService : ISessionService
     public async Task<(bool isActive, Guid session)> searchSession(Guid userId)
     {
         Console.WriteLine("===Searching An Active Session===");
-        var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null 
+        var searchSession = await _context.Sessions.Where(s => s.user_id == userId && s.ended_at == null
         && s.messages.Any(m => m.source == 1))
             .OrderByDescending(s => s.created_at).FirstOrDefaultAsync();
 

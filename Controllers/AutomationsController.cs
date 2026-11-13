@@ -35,4 +35,32 @@ public class AutomationsController : ControllerBase
             successfulMessages = sent
         });
     }
+
+    //! Daily Recommendation
+    [HttpGet("recommendation/preview")]
+    public async Task<IActionResult> GetRecommendationPreview(
+        CancellationToken cancellationToken)
+    {
+        var recommendation =
+            await _automationService.GetDailyRecommendationAsync(
+                cancellationToken);
+
+        return Ok(recommendation);
+    }
+
+    [HttpPost("recommendation/executetest")]
+    public async Task<IActionResult> ExecuteDailyRecommendation(
+        CancellationToken cancellationToken)
+    {
+        int sent =
+            await _automationService.ExecuteDailyRecommendationAsync(
+                cancellationToken);
+
+        return Ok(new
+        {
+            message = "DailyRecommendation execution completed.",
+            successfulMessages = sent
+        });
+    }
+
 }

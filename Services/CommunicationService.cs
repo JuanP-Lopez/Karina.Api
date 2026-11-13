@@ -22,7 +22,10 @@ public class CommunicationService : ICommunicationService
 
     private readonly string _agentBaseUrl;
 
-    public CommunicationService(IConfiguration configuration, KarinaContext context, ISessionService sessionService, IUserStatisticsService userStatisticsService)
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public CommunicationService(IConfiguration configuration, KarinaContext context,
+    ISessionService sessionService, IUserStatisticsService userStatisticsService, IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _sessionService = sessionService;
@@ -30,6 +33,7 @@ public class CommunicationService : ICommunicationService
         _configuration = configuration;
         _accessToken = _configuration["Meta:WhatsappToken"];
         _agentBaseUrl = _configuration["Agent:GeminiUrl"] ?? throw new InvalidOperationException("KarinaAgent:BaseUrl is not configured.");
+        _httpClientFactory = httpClientFactory;
     }
 
 
@@ -94,7 +98,7 @@ public class CommunicationService : ICommunicationService
                 }
 
                 List<KarinaResponse>? result = JsonSerializer.Deserialize<List<KarinaResponse>>(response_to_json);
-                if(result == null || result.Count == 0)
+                if (result == null || result.Count == 0)
                 {
                     throw new InvalidOperationException("ADK returned an empty response");
                 }
@@ -329,5 +333,85 @@ public class CommunicationService : ICommunicationService
             return null;
         }
     }
+
+
+    public async Task<string?> GenerateAutomationResponseAsync(string agentUserId, string sessionId, string prompt, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new KarinaRequest
+            {
+                app_name = "karina_agent",
+                user_id = agentUserId,
+                session_id = sessionId,
+                new_message = new NewMessage
+                {
+                    role = "user",
+                    parts =
+                    [
+                        new Parts { text = prompt }
+                    ]
+                }
+            };
+
+
+            string url = $"{_agentBaseUrl.TrimEnd('/')}/run";
+
+            using HttpClient client = _httpClientFactory.CreateClient("KarinaAgent");
+
+            using var content = new StringContent(
+                JsonSerializer.Serialize(request),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            using HttpResponseMessage response = await client.PostAsync(
+                url,
+                content,
+                cancellationToken
+            );
+
+            string responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine(
+                    $"=== ADK Error: {(int)response.StatusCode} - {responseJson} ==="
+                );
+
+                return null;
+            }
+
+            var agentResponses =
+                JsonSerializer.Deserialize<List<KarinaResponse>>(
+                    responseJson,
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    }
+                );
+
+            string? generatedText = agentResponses?
+                .SelectMany(r => r.Content?.Parts ?? [])
+                .Select(p => p.Text)
+                .LastOrDefault(text => !string.IsNullOrWhiteSpace(text));
+
+            return generatedText;
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"=== Error Generating Automation Response: {ex} ==="
+            );
+
+            return null;
+        }
+    }
+
 
 }

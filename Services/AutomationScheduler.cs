@@ -1,3 +1,4 @@
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Karina.Api.Services;
@@ -7,13 +8,28 @@ public class AutomationScheduler : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AutomationScheduler> _logger;
     private readonly TimeZoneInfo _timeZone;
+    private readonly TimeOnly _weatherTime;
+    private readonly TimeOnly _recommendationTime;
 
-    public AutomationScheduler(IServiceScopeFactory scopeFactory, ILogger<AutomationScheduler> logger)
+    public AutomationScheduler(
+        IServiceScopeFactory scopeFactory,
+        ILogger<AutomationScheduler> logger,
+        IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
 
         _timeZone = GetMonterreyTimeZone();
+
+        _weatherTime = ReadScheduleTime(
+            configuration,
+            "Automations:Schedule:DailyWeather",
+            "06:00");
+
+        _recommendationTime = ReadScheduleTime(
+            configuration,
+            "Automations:Schedule:DailyRecommendation",
+            "19:50");
     }
 
     protected override async Task ExecuteAsync(
@@ -23,14 +39,39 @@ public class AutomationScheduler : BackgroundService
             "AutomationScheduler iniciado. Zona horaria: {TimeZone}",
             _timeZone.Id);
 
+        await Task.WhenAll(
+            RunDailyAsync(
+                "DailyWeather",
+                _weatherTime,
+                (service, token) =>
+                    service.ExecuteDailyWeatherAsync(token),
+                stoppingToken),
+
+            RunDailyAsync(
+                "DailyRecommendation",
+                _recommendationTime,
+                (service, token) =>
+                    service.ExecuteDailyRecommendationAsync(token),
+                stoppingToken)
+        );
+
+        _logger.LogInformation("AutomationScheduler detenido.");
+    }
+
+    private async Task RunDailyAsync(
+        string automationName,
+        TimeOnly scheduledTime,
+        Func<IAutomationService, CancellationToken, Task<int>> execute,
+        CancellationToken stoppingToken)
+    {
         while (!stoppingToken.IsCancellationRequested)
         {
             DateTimeOffset now = TimeZoneInfo.ConvertTime(
                 DateTimeOffset.UtcNow,
                 _timeZone);
 
-            //! Próxima ejecución en formato de 24 horas
-            DateTime nextExecutionLocal = now.Date.AddHours(6);
+            DateTime nextExecutionLocal =
+                now.Date.Add(scheduledTime.ToTimeSpan());
 
             if (nextExecutionLocal <= now.DateTime)
             {
@@ -44,26 +85,31 @@ public class AutomationScheduler : BackgroundService
             TimeSpan delay = nextExecution - DateTimeOffset.UtcNow;
 
             _logger.LogInformation(
-                "DailyWeather programado para {NextExecution}",
+                "{Automation} programado para {NextExecution}",
+                automationName,
                 nextExecution);
 
             try
             {
                 await Task.Delay(delay, stoppingToken);
 
-                using IServiceScope scope = _scopeFactory.CreateScope();
+                using IServiceScope scope =
+                    _scopeFactory.CreateScope();
 
                 var automationService = scope.ServiceProvider
                     .GetRequiredService<IAutomationService>();
 
                 _logger.LogInformation(
-                    "Iniciando ejecución de DailyWeather.");
+                    "Iniciando ejecución de {Automation}",
+                    automationName);
 
-                int sent = await automationService.ExecuteDailyWeatherAsync(
+                int sent = await execute(
+                    automationService,
                     stoppingToken);
 
                 _logger.LogInformation(
-                    "DailyWeather finalizado. Mensajes enviados: {Sent}",
+                    "{Automation} finalizado. Mensajes enviados: {Sent}",
+                    automationName,
                     sent);
             }
             catch (OperationCanceledException)
@@ -75,11 +121,30 @@ public class AutomationScheduler : BackgroundService
             {
                 _logger.LogError(
                     ex,
-                    "Error durante la ejecución de DailyWeather.");
+                    "Error durante la ejecución de {Automation}",
+                    automationName);
             }
         }
+    }
 
-        _logger.LogInformation("AutomationScheduler detenido.");
+    private static TimeOnly ReadScheduleTime(
+        IConfiguration configuration,
+        string key,
+        string defaultValue)
+    {
+        string value = configuration[key] ?? defaultValue;
+
+        if (!TimeOnly.TryParseExact(
+            value,
+            "HH:mm",
+            out TimeOnly time))
+        {
+            throw new InvalidOperationException(
+                $"El horario configurado en {key} no es válido. " +
+                "Utiliza el formato HH:mm.");
+        }
+
+        return time;
     }
 
     private static TimeZoneInfo GetMonterreyTimeZone()
@@ -91,7 +156,6 @@ public class AutomationScheduler : BackgroundService
         }
         catch (TimeZoneNotFoundException)
         {
-            // Alternativa para entornos Windows.
             return TimeZoneInfo.FindSystemTimeZoneById(
                 "Central Standard Time (Mexico)");
         }

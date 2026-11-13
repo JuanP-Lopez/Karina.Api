@@ -13,4 +13,7 @@ public interface ICommunicationService
     //! Implementacion de compatibilidad con portal web
     Task<string?> generateResponse(Guid userId, string agentUserId, string sessionId, string userMessage);
 
+    //! Implementacion para automatizaciones
+    Task<string?> GenerateAutomationResponseAsync(string agentUserId, string sessionId, string prompt, CancellationToken cancellationToken = default);
+
 }
