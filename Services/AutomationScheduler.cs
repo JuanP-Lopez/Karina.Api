@@ -29,7 +29,7 @@ public class AutomationScheduler : BackgroundService
         _recommendationTime = ReadScheduleTime(
             configuration,
             "Automations:Schedule:DailyRecommendation",
-            "19:50");
+            "07:00");
     }
 
     protected override async Task ExecuteAsync(
