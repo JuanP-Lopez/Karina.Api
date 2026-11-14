@@ -7,6 +7,7 @@ using Karina.Api.Data;
 using Karina.Api.Services;
 using Karina.Api.DTOs.Automations;
 using Karina.Api.Models.Automations;
+using Karina.Api.Models;
 
 public class AutomationService : IAutomationService
 {
@@ -360,11 +361,11 @@ public class AutomationService : IAutomationService
             string[] validCategories =
             [
                 "Movies",
-            "Series",
-            "VideoGames",
-            "Music",
-            "Anime",
-            "Other"
+                "Series",
+                "VideoGames",
+                "Music",
+                "Anime",
+                "Other"
             ];
 
             if (!validCategories.Contains(
@@ -564,6 +565,95 @@ public class AutomationService : IAutomationService
         """;
     }
 
+    // Subscription management
 
+    public async Task<List<AutomationDto>> GetAutomationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Automations
+            .AsNoTracking()
+            .OrderBy(a => a.name)
+            .Select(a => new AutomationDto
+            {
+                AutomationId = a.automation_id,
+                Name = a.name,
+                Description = a.description,
+
+                IsActive = a.users_automations.Any(
+                    ua => ua.user_id == userId)
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> ActivateAutomationAsync(
+        Guid userId,
+        Guid automationId,
+        CancellationToken cancellationToken = default)
+    {
+        // Verify that the automation exists.
+        bool exists = await _context.Automations
+            .AnyAsync(
+                a => a.automation_id == automationId,
+                cancellationToken);
+
+        if (!exists)
+            return false;
+
+        // Check whether the user is already subscribed.
+        bool isActive = await _context.UsersAutomations
+            .AnyAsync(
+                ua => ua.user_id == userId &&
+                      ua.automation_id == automationId,
+                cancellationToken);
+
+        if (isActive)
+            return true;
+
+        // Create the subscription.
+        var subscription = new UserAutomation
+        {
+            user_id = userId,
+            automation_id = automationId
+        };
+
+        _context.UsersAutomations.Add(subscription);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
+
+    public async Task<bool> DeactivateAutomationAsync(
+        Guid userId,
+        Guid automationId,
+        CancellationToken cancellationToken = default)
+    {
+        // Verify that the automation exists.
+        bool exists = await _context.Automations
+            .AnyAsync(
+                a => a.automation_id == automationId,
+                cancellationToken);
+
+        if (!exists)
+            return false;
+
+        // Find the user's subscription.
+        var subscription = await _context.UsersAutomations
+            .FirstOrDefaultAsync(
+                ua => ua.user_id == userId &&
+                      ua.automation_id == automationId,
+                cancellationToken);
+
+        // If already inactive, nothing needs to be deleted.
+        if (subscription == null)
+            return true;
+
+        _context.UsersAutomations.Remove(subscription);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
 
 }
